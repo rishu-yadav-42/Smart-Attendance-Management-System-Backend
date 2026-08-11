@@ -296,7 +296,7 @@ def mark_attendance_ajax():
         return jsonify({"success": False, "message": "Invalid student data."})
 
     if not student_exists(student_id):
-        return jsonify({"success": False, "message": "Student registered nahi hai."})
+        return jsonify({"success": False, "message": "Student is not registered."})
 
     now = datetime.now()
     attendance_date = now.strftime("%Y-%m-%d")
@@ -662,7 +662,7 @@ def process_attendance():
             "result.html",
             success=False,
             title="Attendance",
-            message="Camera open nahi ho pa raha. Dusri app me camera use ho raha ho to usse band karke phir try karein.",
+            message="Unable to open camera. If another application is using the camera, please close it and try again.",
             back_url=url_for("main.home"),
         )
 
@@ -680,7 +680,7 @@ def process_attendance():
             "result.html",
             success=False,
             title="Attendance",
-            message="Camera frames stable nahi mil rahe. Camera preview ya dusri app band karke phir try karein.",
+            message="Camera frames are unstable. Please close any other application using the camera and try again.",
             back_url=url_for("main.home"),
         )
 
@@ -689,7 +689,7 @@ def process_attendance():
             "result.html",
             success=False,
             title="Attendance",
-            message="Face detect nahi ho paaya. Camera ke saamne seedha aayein aur light improve karein.",
+            message="Face could not be detected. Please look straight at the camera and ensure good lighting.",
             back_url=url_for("main.home"),
         )
 
@@ -844,7 +844,7 @@ def process_register():
             "result.html",
             success=False,
             title="Register Student",
-            message="Camera open nahi ho pa raha. Camera ko use karne wali dusri app band karke phir try karein.",
+            message="Unable to open camera. Please close any other application using the camera and try again.",
             back_url=url_for("main.home"),
         )
     sample = 0
@@ -891,7 +891,7 @@ def process_register():
         "result.html",
         success=success,
         title="Register Student",
-        message=f"{name} (ID: {student_id}) add ho gaya. {train_message}",
+        message=f"{name} (ID: {student_id}) added successfully. {train_message}",
         back_url=url_for("main.home"),
     )
 
@@ -935,7 +935,7 @@ def retrain_model():
             "result.html",
             success=False,
             title="Retrain Model",
-            message="Koyi student registered nahi hai. Pehle student register karein.",
+            message="No student is registered. Please register a student first.",
             back_url=url_for("main.home"),
         )
     success, train_message = train_model()

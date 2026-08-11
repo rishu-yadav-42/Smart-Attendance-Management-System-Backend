@@ -585,7 +585,7 @@ def _process_single_frame(img):
     id_to_name = dict(zip(students["Id"].astype(str), students["Name"]))
     recognizer, backend = load_face_recognizer()
     if recognizer is None:
-        return {"status": "error", "message": "Model trained nahi hai. Pehle 'Train Model' chalayein."}
+        return {"status": "error", "message": "Model is not trained. Please run 'Train Model' first."}
 
     registered_count = recognizer_student_count(recognizer, len(id_to_name))
     removed_recognizer = build_removed_face_recognizer()
@@ -656,7 +656,7 @@ def _process_single_frame(img):
             "backend": backend,
         }
 
-    return {"status": "unmatched", "message": "Face match nahi hua."}
+    return {"status": "unmatched", "message": "Face match failed. Unrecognized face."}
 
 
 def train_model():
@@ -717,7 +717,7 @@ def train_model():
         recognizer.save(MODEL_FILE)
         return True, f"Model trained with {len(faces)} face samples. {summary}"
 
-    return True, f"Model trained with {len(faces)} face samples. {summary}. OpenCV fallback model use ho raha hai."
+    return True, f"Model trained with {len(faces)} face samples. {summary}. Using OpenCV fallback model."
 
 
 def active_model_file():
