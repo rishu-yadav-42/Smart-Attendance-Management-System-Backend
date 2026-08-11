@@ -447,8 +447,8 @@ def process_register_ajax():
             and training_file_student_id(f) == str(student_id)
         )
 
-        if sample_count < 12:
-            return jsonify({"success": False, "message": f"Only {sample_count} samples captured. Need at least 12. Please try again with better lighting."})
+        if sample_count < 8:
+            return jsonify({"success": False, "message": f"Only {sample_count} samples captured. Need at least 8. Please try again with better lighting."})
 
         add_student(student_id, name)
         success, train_message = train_model()

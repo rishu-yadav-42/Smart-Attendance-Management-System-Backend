@@ -226,16 +226,41 @@ def preprocess_face(gray_face):
     return face
 
 
-def crop_face_with_padding(image, x, y, w, h, padding_ratio=0.22):
-    pad_w = int(w * padding_ratio)
-    pad_h = int(h * padding_ratio)
-    x1 = max(0, x - pad_w)
-    y1 = max(0, y - pad_h)
-    x2 = min(image.shape[1], x + w + pad_w)
-    y2 = min(image.shape[0], y + h + pad_h)
-    if x2 <= x1 or y2 <= y1:
+def crop_face_with_padding(image, x, y, w, h, padding_ratio=0.25):
+    if image is None or image.size == 0:
         return None
-    return image[y1:y2, x1:x2]
+
+    img_h, img_w = image.shape[:2]
+    cx = x + w / 2.0
+    cy = y + h / 2.0
+    side = max(w, h)
+    half_side = int(round((side * (1.0 + 2.0 * padding_ratio)) / 2.0))
+
+    x1 = int(round(cx - half_side))
+    y1 = int(round(cy - half_side))
+    x2 = int(round(cx + half_side))
+    y2 = int(round(cy + half_side))
+
+    pad_left = max(0, -x1)
+    pad_top = max(0, -y1)
+    pad_right = max(0, x2 - img_w)
+    pad_bottom = max(0, y2 - img_h)
+
+    x1_clamped = max(0, x1)
+    y1_clamped = max(0, y1)
+    x2_clamped = min(img_w, x2)
+    y2_clamped = min(img_h, y2)
+
+    crop = image[y1_clamped:y2_clamped, x1_clamped:x2_clamped]
+    if crop.size == 0:
+        return None
+
+    if pad_left > 0 or pad_top > 0 or pad_right > 0 or pad_bottom > 0:
+        crop = cv2.copyMakeBorder(
+            crop, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT, value=[0, 0, 0]
+        )
+
+    return crop
 
 
 def face_descriptor(face):
@@ -319,8 +344,10 @@ def build_simple_recognizer(allowed_ids):
         except Exception:
             continue
 
-        descriptors.append(face_descriptor(preprocess_face(np.array(img, "uint8"))))
-        labels.append(student_id)
+        arr = np.array(img, "uint8")
+        for f in (arr, np.fliplr(arr)):
+            descriptors.append(face_descriptor(preprocess_face(f)))
+            labels.append(student_id)
 
     if not descriptors:
         return None
@@ -353,13 +380,13 @@ def build_arcface_recognizer(allowed_ids):
             continue
 
         total += 1
-        embedding = extract_arcface_embedding(image)
-        if embedding is None:
-            skipped += 1
-            continue
-
-        embeddings.append(embedding)
-        labels.append(student_id)
+        for var in (image, cv2.flip(image, 1)):
+            embedding = extract_arcface_embedding(var)
+            if embedding is None:
+                skipped += 1
+                continue
+            embeddings.append(embedding)
+            labels.append(student_id)
 
     print(f"[DEBUG] build_arcface_recognizer: total={total}, success={len(embeddings)}, skipped={skipped}")
     if not embeddings:
@@ -490,11 +517,21 @@ def build_removed_face_recognizer():
 
 def predict_with_backend(recognizer, backend, face_gray, face_color):
     if backend == "arcface":
-        return recognizer.predict(face_color)
+        res1 = recognizer.predict(face_color)
+        if face_color is not None:
+            res2 = recognizer.predict(cv2.flip(face_color, 1))
+            if res2[1] > res1[1]:
+                return res2
+        return res1
     if backend == "lbph":
         label, confidence = recognizer.predict(preprocess_face(face_gray))
         return str(label), float(confidence), 999.0
-    return recognizer.predict(face_gray)
+    res1 = recognizer.predict(face_gray)
+    if face_gray is not None:
+        res2 = recognizer.predict(cv2.flip(face_gray, 1))
+        if res2[1] < res1[1]:
+            return res2
+    return res1
 
 
 def arcface_threshold_for_count(registered_count):
@@ -655,8 +692,10 @@ def train_model():
         except Exception:
             continue
 
-        faces.append(preprocess_face(np.array(img, "uint8")))
-        ids.append(label)
+        arr = np.array(img, "uint8")
+        for f in (arr, np.fliplr(arr)):
+            faces.append(preprocess_face(f))
+            ids.append(label)
 
     if not faces:
         return False, "No matching training images were found for the registered students. Please add the student again using **Register Student**."
