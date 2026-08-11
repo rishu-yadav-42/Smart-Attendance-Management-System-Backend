@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, jsonify
 
 try:
     from backend.config import BASE_DIR, ensure_folders
@@ -27,6 +27,22 @@ def create_app():
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, DELETE, PUT"
         return response
+
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        return jsonify({
+            "success": False,
+            "status": "error",
+            "message": f"Backend Exception: {str(e)}"
+        }), 500
+
+    @app.errorhandler(404)
+    def handle_404(e):
+        return jsonify({
+            "success": False,
+            "status": "error",
+            "message": "Endpoint not found on backend server."
+        }), 404
 
     try:
         from backend.routes import bp

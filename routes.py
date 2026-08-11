@@ -344,107 +344,115 @@ def mark_attendance_ajax():
 
 @bp.route("/capture_register_frame", methods=["POST"])
 def capture_register_frame():
-    data = request.get_json(force=True, silent=True) or {}
-    student_id = str(request.form.get("student_id") or data.get("student_id") or session.get("temp_id") or "").strip()
-    name = str(request.form.get("name") or data.get("name") or session.get("temp_name") or "").strip()
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        student_id = str(request.form.get("student_id") or data.get("student_id") or session.get("temp_id") or "").strip()
+        name = str(request.form.get("name") or data.get("name") or session.get("temp_name") or "").strip()
 
-    if not student_id or not name:
-        return jsonify({"success": False, "message": "Missing student ID or name. Please start registration again."})
+        if not student_id or not name:
+            return jsonify({"success": False, "message": "Missing student ID or name. Please start registration again."})
 
-    if "image" not in request.files:
-        return jsonify({"success": False, "message": "No image received"})
+        if "image" not in request.files:
+            return jsonify({"success": False, "message": "No image received"})
 
-    file = request.files["image"]
-    img_bytes = file.read()
-    if not img_bytes:
-        return jsonify({"success": False, "message": "Empty image received"})
+        file = request.files["image"]
+        img_bytes = file.read()
+        if not img_bytes:
+            return jsonify({"success": False, "message": "Empty image received"})
 
-    nparr = np.frombuffer(img_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if img is None:
-        return jsonify({"success": False, "message": "Invalid image format"})
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return jsonify({"success": False, "message": "Invalid image format"})
 
-    h_img, w_img = img.shape[:2]
-    max_dim = 480
-    if max(h_img, w_img) > max_dim:
-        scale = max_dim / max(h_img, w_img)
-        img_small = cv2.resize(img, (int(w_img * scale), int(h_img * scale)))
-        scale_factor = 1.0 / scale
-    else:
-        img_small = img
-        scale_factor = 1.0
+        h_img, w_img = img.shape[:2]
+        max_dim = 480
+        if max(h_img, w_img) > max_dim:
+            scale = max_dim / max(h_img, w_img)
+            img_small = cv2.resize(img, (int(w_img * scale), int(h_img * scale)))
+            scale_factor = 1.0 / scale
+        else:
+            img_small = img
+            scale_factor = 1.0
 
-    gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
-    gray = cv2.equalizeHist(gray)
-    faces = face_cascade.detectMultiScale(
-        gray,
-        scaleFactor=1.08,
-        minNeighbors=5,
-        minSize=(int(70 * scale_factor), int(70 * scale_factor)),
-    )
+        gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
+        gray = cv2.equalizeHist(gray)
+        faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.08,
+            minNeighbors=5,
+            minSize=(int(70 * scale_factor), int(70 * scale_factor)),
+        )
 
-    if len(faces) == 0:
-        return jsonify({"success": False, "message": "No face detected in frame"})
+        if len(faces) == 0:
+            return jsonify({"success": False, "message": "No face detected in frame"})
 
-    x, y, w, h = faces[0]
-    x_orig = int(x * scale_factor)
-    y_orig = int(y * scale_factor)
-    w_orig = int(w * scale_factor)
-    h_orig = int(h * scale_factor)
-    padded_face = crop_face_with_padding(img, x_orig, y_orig, w_orig, h_orig, 0.22)
-    if padded_face is None:
-        return jsonify({"success": False, "message": "Face crop failed"})
+        x, y, w, h = faces[0]
+        x_orig = int(x * scale_factor)
+        y_orig = int(y * scale_factor)
+        w_orig = int(w * scale_factor)
+        h_orig = int(h * scale_factor)
+        padded_face = crop_face_with_padding(img, x_orig, y_orig, w_orig, h_orig, 0.22)
+        if padded_face is None:
+            return jsonify({"success": False, "message": "Face crop failed"})
 
-    face = cv2.resize(padded_face, (224, 224))
-    ensure_folders()
+        face = cv2.resize(padded_face, (224, 224))
+        ensure_folders()
 
-    existing_samples = [
-        f for f in os.listdir(TRAINING_DIR)
-        if f.lower().endswith((".jpg", ".jpeg", ".png"))
-        and training_file_student_id(f) == str(student_id)
-    ]
-    sample_num = len(existing_samples) + 1
+        existing_samples = [
+            f for f in os.listdir(TRAINING_DIR)
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            and training_file_student_id(f) == str(student_id)
+        ]
+        sample_num = len(existing_samples) + 1
 
-    filename = f"{safe_file_name(name)}.{student_id}.{sample_num}.jpg"
-    filepath = os.path.join(TRAINING_DIR, filename)
-    cv2.imwrite(filepath, face)
+        filename = f"{safe_file_name(name)}.{student_id}.{sample_num}.jpg"
+        filepath = os.path.join(TRAINING_DIR, filename)
+        cv2.imwrite(filepath, face)
 
-    return jsonify({"success": True, "sample": sample_num})
+        return jsonify({"success": True, "sample": sample_num})
+    except Exception as exc:
+        print(f"[ERROR] capture_register_frame exception: {exc}")
+        return jsonify({"success": False, "message": f"Server capture exception: {str(exc)}"})
 
 
 @bp.route("/process_register_ajax", methods=["POST"])
 def process_register_ajax():
-    data = request.get_json(force=True, silent=True) or {}
-    student_id = str(request.form.get("student_id") or data.get("student_id") or session.get("temp_id") or "").strip()
-    name = str(request.form.get("name") or data.get("name") or session.get("temp_name") or "").strip()
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        student_id = str(request.form.get("student_id") or data.get("student_id") or session.get("temp_id") or "").strip()
+        name = str(request.form.get("name") or data.get("name") or session.get("temp_name") or "").strip()
 
-    if not student_id or not name:
-        return jsonify({"success": False, "message": "Registration session expired or missing parameters."})
+        if not student_id or not name:
+            return jsonify({"success": False, "message": "Registration session expired or missing parameters."})
 
-    if student_exists(student_id):
+        if student_exists(student_id):
+            session.pop("temp_id", None)
+            session.pop("temp_name", None)
+            return jsonify({"success": False, "message": f"ID {student_id} already registered."})
+
+        ensure_folders()
+        sample_count = sum(
+            1 for f in os.listdir(TRAINING_DIR)
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            and training_file_student_id(f) == str(student_id)
+        )
+
+        if sample_count < 12:
+            return jsonify({"success": False, "message": f"Only {sample_count} samples captured. Need at least 12. Please try again with better lighting."})
+
+        add_student(student_id, name)
+        success, train_message = train_model()
         session.pop("temp_id", None)
         session.pop("temp_name", None)
-        return jsonify({"success": False, "message": f"ID {student_id} already registered."})
 
-    ensure_folders()
-    sample_count = sum(
-        1 for f in os.listdir(TRAINING_DIR)
-        if f.lower().endswith((".jpg", ".jpeg", ".png"))
-        and training_file_student_id(f) == str(student_id)
-    )
-
-    if sample_count < 12:
-        return jsonify({"success": False, "message": f"Only {sample_count} samples captured. Need at least 12. Please try again with better lighting."})
-
-    add_student(student_id, name)
-    success, train_message = train_model()
-    session.pop("temp_id", None)
-    session.pop("temp_name", None)
-
-    return jsonify({
-        "success": success,
-        "message": f"{name} (ID: {student_id}) registered successfully. {train_message}"
-    })
+        return jsonify({
+            "success": success,
+            "message": f"{name} (ID: {student_id}) registered successfully. {train_message}"
+        })
+    except Exception as exc:
+        print(f"[ERROR] process_register_ajax exception: {exc}")
+        return jsonify({"success": False, "message": f"Registration processing error: {str(exc)}"})
 
 
 @bp.route("/process_attendance")
