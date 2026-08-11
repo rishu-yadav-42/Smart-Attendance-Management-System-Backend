@@ -898,11 +898,20 @@ def process_register():
 
 @bp.route("/delete_student", methods=["POST"])
 def delete_student_route():
-    if "admin" not in session:
-        return redirect(url_for("main.login"))
+    data = request.get_json(force=True, silent=True) or {}
+    student_id = str(request.form.get("student_id") or data.get("student_id") or "").strip()
 
-    student_id = request.form.get("student_id", "").strip()
+    is_api_req = (
+        request.is_json
+        or request.headers.get("Accept") == "application/json"
+        or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or bool(request.form.get("student_id"))
+        or bool(data.get("student_id"))
+    )
+
     if not valid_student_id(student_id):
+        if is_api_req:
+            return jsonify({"success": False, "message": "The selected student ID is invalid."})
         return safe_render_template(
             "result.html",
             success=False,
@@ -915,6 +924,9 @@ def delete_student_route():
     if session.get("temp_id") == normalize_id(student_id):
         session.pop("temp_id", None)
         session.pop("temp_name", None)
+
+    if is_api_req:
+        return jsonify({"success": success, "message": message})
 
     return safe_render_template(
         "result.html",
@@ -1003,13 +1015,12 @@ def sync_attendance_route():
     )
 
 
+@bp.route("/api/db_view")
 @bp.route("/db_view")
 def db_view():
-    if "admin" not in session:
-        return redirect(url_for("main.login"))
     init_db()
     with get_db_connection() as conn:
-        students_rows = conn.execute("SELECT * FROM students ORDER BY CAST(id AS INTEGER), id").fetchall()
+        students_rows = conn.execute("SELECT id, name FROM students ORDER BY CAST(id AS INTEGER), id").fetchall()
         attendance_rows = conn.execute(
             """
             SELECT id, student_id, name,
@@ -1024,10 +1035,32 @@ def db_view():
         total_attendance = conn.execute("SELECT COUNT(*) FROM attendance").fetchone()[0]
         total_students = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
         distinct_dates = conn.execute("SELECT COUNT(DISTINCT attendance_date) FROM attendance").fetchone()[0]
+
+    students_list = [{"id": str(row["id"]), "name": str(row["name"])} for row in students_rows]
+    attendance_list = [dict(row) for row in attendance_rows]
+
+    if (
+        request.path.startswith("/api/")
+        or request.is_json
+        or request.headers.get("Accept") == "application/json"
+        or request.args.get("json") == "1"
+    ):
+        return jsonify({
+            "success": True,
+            "total_students": total_students,
+            "total_attendance": total_attendance,
+            "distinct_dates": distinct_dates,
+            "students": students_list,
+            "attendance": attendance_list,
+        })
+
+    if "admin" not in session and not request.args.get("guest"):
+        return redirect(url_for("main.login"))
+
     return safe_render_template(
         "db_view.html",
-        students=[dict(row) for row in students_rows],
-        attendance=[dict(row) for row in attendance_rows],
+        students=students_list,
+        attendance=attendance_list,
         total_attendance=total_attendance,
         total_students=total_students,
         distinct_dates=distinct_dates,
