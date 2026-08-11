@@ -344,13 +344,12 @@ def mark_attendance_ajax():
 
 @bp.route("/capture_register_frame", methods=["POST"])
 def capture_register_frame():
-    if "admin" not in session:
-        return jsonify({"success": False, "message": "Admin login required."})
+    data = request.get_json(force=True, silent=True) or {}
+    student_id = str(request.form.get("student_id") or data.get("student_id") or session.get("temp_id") or "").strip()
+    name = str(request.form.get("name") or data.get("name") or session.get("temp_name") or "").strip()
 
-    student_id = session.get("temp_id")
-    name = session.get("temp_name")
     if not student_id or not name:
-        return jsonify({"success": False, "message": "Registration session expired. Please start again."})
+        return jsonify({"success": False, "message": "Missing student ID or name. Please start registration again."})
 
     if "image" not in request.files:
         return jsonify({"success": False, "message": "No image received"})
@@ -415,14 +414,12 @@ def capture_register_frame():
 
 @bp.route("/process_register_ajax", methods=["POST"])
 def process_register_ajax():
-    if "admin" not in session:
-        return jsonify({"success": False, "message": "Admin login required."})
-
-    student_id = session.get("temp_id")
-    name = session.get("temp_name")
+    data = request.get_json(force=True, silent=True) or {}
+    student_id = str(request.form.get("student_id") or data.get("student_id") or session.get("temp_id") or "").strip()
+    name = str(request.form.get("name") or data.get("name") or session.get("temp_name") or "").strip()
 
     if not student_id or not name:
-        return jsonify({"success": False, "message": "Registration session expired."})
+        return jsonify({"success": False, "message": "Registration session expired or missing parameters."})
 
     if student_exists(student_id):
         session.pop("temp_id", None)
