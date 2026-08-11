@@ -128,6 +128,25 @@ except ImportError:
 bp = Blueprint("main", __name__)
 
 
+def safe_render_template(template_name, **context):
+    try:
+        return render_template(template_name, **context)
+    except Exception:
+        return jsonify({
+            "status": "online",
+            "message": "Smart Attendance Management System Backend API is running.",
+            "version": APP_VERSION,
+            "api_endpoints": {
+                "health": "/health",
+                "app_status": "/app_status",
+                "process_frame": "/process_frame",
+                "mark_attendance": "/mark_attendance_ajax",
+                "capture_frame": "/capture_register_frame",
+                "process_register": "/process_register_ajax"
+            }
+        })
+
+
 @bp.route("/video_feed")
 def video_feed():
     max_duration = request.args.get("max_duration", type=int, default=15)
@@ -142,14 +161,14 @@ def stop_camera_preview():
 
 @bp.route("/camera")
 def camera():
-    return render_template("camera.html")
+    return safe_render_template("camera.html")
 
 
 @bp.route("/register_camera")
 def register_camera():
     if "admin" not in session:
         return redirect(url_for("main.login"))
-    return render_template("register_camera.html")
+    return safe_render_template("register_camera.html")
 
 
 @bp.route("/train")
@@ -158,19 +177,19 @@ def train():
         return redirect(url_for("main.login"))
 
     success, message = train_model()
-    return render_template("result.html", success=success, title="Training", message=message, back_url=url_for("main.home"))
+    return safe_render_template("result.html", success=success, title="Training", message=message, back_url=url_for("main.home"))
 
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     error = None
     if request.method == "POST":
-        if request.form["username"] == "Rishu" and request.form["password"] == "Rishu@123":
+        if request.form.get("username") == "Rishu" and request.form.get("password") == "Rishu@123":
             session["admin"] = True
             return redirect(url_for("main.home"))
         error = "Invalid username or password."
 
-    return render_template("login.html", error=error)
+    return safe_render_template("login.html", error=error)
 
 
 @bp.route("/logout")
@@ -181,40 +200,62 @@ def logout():
 
 @bp.route("/")
 def home():
-    students = load_students()
-    attendance_rows = latest_attendance_rows(limit=10)
-    attendance_total_count = total_attendance_count()
-    attendance_stats = attendance_summary()
-    model_ready = not model_needs_training()
-    recognizer, backend = load_face_recognizer()
-    backend_name = backend if backend else "none"
-    return render_template(
-        "index.html",
-        students=students.to_dict("records"),
-        attendance_rows=attendance_rows,
-        attendance_total_count=attendance_total_count,
-        attendance_stats=attendance_stats,
-        model_ready=model_ready,
-        student_count=len(students),
-        backend=backend_name,
-    )
+    try:
+        students = load_students()
+        attendance_rows = latest_attendance_rows(limit=10)
+        attendance_total_count = total_attendance_count()
+        attendance_stats = attendance_summary()
+        model_ready = not model_needs_training()
+        recognizer, backend = load_face_recognizer()
+        backend_name = backend if backend else "none"
+        return safe_render_template(
+            "index.html",
+            students=students.to_dict("records"),
+            attendance_rows=attendance_rows,
+            attendance_total_count=attendance_total_count,
+            attendance_stats=attendance_stats,
+            model_ready=model_ready,
+            student_count=len(students),
+            backend=backend_name,
+        )
+    except Exception as exc:
+        return jsonify({
+            "status": "online",
+            "message": "Smart Attendance Management System Backend API is running.",
+            "version": APP_VERSION,
+            "api_endpoints": {
+                "health": "/health",
+                "app_status": "/app_status",
+                "process_frame": "/process_frame",
+                "mark_attendance": "/mark_attendance_ajax",
+                "capture_frame": "/capture_register_frame",
+                "process_register": "/process_register_ajax"
+            }
+        })
 
 
 @bp.route("/app_status")
 def app_status():
-    students = load_students()
-    arcface_runtime_ready = get_arcface_app() is not None if insightface_available() else False
-    return {
-        "version": APP_VERSION,
-        "students": students.to_dict("records"),
-        "model_needs_training": model_needs_training(),
-        "removed_student_ids": sorted(get_removed_student_ids()),
-        "face_backend": "arcface" if insightface_available() else ("opencv_lbph" if has_lbph() else "numpy_fallback"),
-        "training_sample_counts": training_sample_counts(),
-        "arcface_ready": os.path.exists(ARCFACE_MODEL_FILE),
-        "arcface_runtime_ready": arcface_runtime_ready,
-        "arcface_error": arcface_init_error,
-    }
+    try:
+        students = load_students()
+        arcface_runtime_ready = get_arcface_app() is not None if insightface_available() else False
+        return {
+            "version": APP_VERSION,
+            "students": students.to_dict("records"),
+            "model_needs_training": model_needs_training(),
+            "removed_student_ids": sorted(get_removed_student_ids()),
+            "face_backend": "arcface" if insightface_available() else ("opencv_lbph" if has_lbph() else "numpy_fallback"),
+            "training_sample_counts": training_sample_counts(),
+            "arcface_ready": os.path.exists(ARCFACE_MODEL_FILE),
+            "arcface_runtime_ready": arcface_runtime_ready,
+            "arcface_error": arcface_init_error,
+        }
+    except Exception as exc:
+        return {
+            "version": APP_VERSION,
+            "status": "online",
+            "message": str(exc),
+        }
 
 
 @bp.route("/result")
@@ -222,7 +263,7 @@ def result_page():
     success = request.args.get("success", "0") == "1"
     title = request.args.get("title", "Result")
     message = request.args.get("message", "")
-    return render_template("result.html", success=success, title=title, message=message, back_url=url_for("main.home"))
+    return safe_render_template("result.html", success=success, title=title, message=message, back_url=url_for("main.home"))
 
 
 @bp.route("/process_frame", methods=["POST"])
@@ -412,7 +453,7 @@ def process_register_ajax():
 @bp.route("/process_attendance")
 def process_attendance():
     if model_needs_training():
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Attendance",
@@ -422,7 +463,7 @@ def process_attendance():
 
     students = load_students()
     if students.empty:
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Attendance",
@@ -433,7 +474,7 @@ def process_attendance():
     id_to_name = dict(zip(students["Id"].astype(str), students["Name"]))
     recognizer, backend = load_face_recognizer()
     if recognizer is None:
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Attendance",
@@ -603,7 +644,7 @@ def process_attendance():
     print(f"[DEBUG] Backend={backend}, buffered={len(buffered_frames)}, use_buffered={use_buffered}, frames_checked={frames_checked}, face_detected={face_detected_frames}, votes={dict(votes)}, removed_votes={removed_votes}")
 
     if not use_buffered and cam is None:
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Attendance",
@@ -612,7 +653,7 @@ def process_attendance():
         )
 
     if removed_votes >= REMOVED_FACE_MIN_FRAMES:
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Attendance",
@@ -621,7 +662,7 @@ def process_attendance():
         )
 
     if frames_checked < 8:
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Attendance",
@@ -630,7 +671,7 @@ def process_attendance():
         )
 
     if face_detected_frames == 0:
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Attendance",
@@ -639,7 +680,7 @@ def process_attendance():
         )
 
     if not votes:
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Attendance",
@@ -652,7 +693,7 @@ def process_attendance():
     avg_conf = sum(confidences[student_id]) / len(confidences[student_id])
 
     if not stable_match_ok(backend, vote_count, total_votes, avg_conf, registered_count):
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Attendance",
@@ -703,7 +744,7 @@ def process_attendance():
                 print(f"[DEBUG] Excel save failed: {exc}")
 
     stat = student_attendance_stat(student_id)
-    return render_template(
+    return safe_render_template(
         "result.html",
         success=True,
         title="Attendance",
@@ -726,11 +767,11 @@ def register():
     if "admin" not in session:
         return redirect(url_for("main.login"))
 
-    student_id = request.form["id"].strip()
-    name = clean_name(request.form["name"])
+    student_id = request.form.get("id", "").strip()
+    name = clean_name(request.form.get("name", ""))
 
     if not valid_student_id(student_id):
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Register Student",
@@ -740,7 +781,7 @@ def register():
 
     student_id = normalize_id(student_id)
     if student_exists(student_id):
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Register Student",
@@ -765,7 +806,7 @@ def process_register():
         return redirect(url_for("main.home"))
 
     if student_exists(student_id):
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Register Student",
@@ -785,7 +826,7 @@ def process_register():
     if cam is None:
         session.pop("temp_id", None)
         session.pop("temp_name", None)
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Register Student",
@@ -819,7 +860,7 @@ def process_register():
     cv2.destroyAllWindows()
 
     if sample < 12:
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Register Student",
@@ -832,7 +873,7 @@ def process_register():
     session.pop("temp_id", None)
     session.pop("temp_name", None)
 
-    return render_template(
+    return safe_render_template(
         "result.html",
         success=success,
         title="Register Student",
@@ -848,7 +889,7 @@ def delete_student_route():
 
     student_id = request.form.get("student_id", "").strip()
     if not valid_student_id(student_id):
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Delete Student",
@@ -861,7 +902,7 @@ def delete_student_route():
         session.pop("temp_id", None)
         session.pop("temp_name", None)
 
-    return render_template(
+    return safe_render_template(
         "result.html",
         success=success,
         title="Delete Student",
@@ -876,7 +917,7 @@ def retrain_model():
         return redirect(url_for("main.login"))
     students = load_students()
     if students.empty:
-        return render_template(
+        return safe_render_template(
             "result.html",
             success=False,
             title="Retrain Model",
@@ -884,7 +925,7 @@ def retrain_model():
             back_url=url_for("main.home"),
         )
     success, train_message = train_model()
-    return render_template(
+    return safe_render_template(
         "result.html",
         success=success,
         title="Retrain Model",
@@ -939,7 +980,7 @@ def sync_attendance_route():
                         ),
                     )
                     count += 1
-    return render_template(
+    return safe_render_template(
         "result.html",
         success=True,
         title="Sync Attendance",
@@ -969,7 +1010,7 @@ def db_view():
         total_attendance = conn.execute("SELECT COUNT(*) FROM attendance").fetchone()[0]
         total_students = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
         distinct_dates = conn.execute("SELECT COUNT(DISTINCT attendance_date) FROM attendance").fetchone()[0]
-    return render_template(
+    return safe_render_template(
         "db_view.html",
         students=[dict(row) for row in students_rows],
         attendance=[dict(row) for row in attendance_rows],
