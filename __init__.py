@@ -20,12 +20,26 @@ def create_app():
     )
     app.secret_key = os.getenv("SECRET_KEY", "secret123")
 
+    @app.before_request
+    def handle_options_preflight():
+        from flask import request
+        if request.method == "OPTIONS":
+            origin = request.headers.get("Origin") or "*"
+            response = jsonify({"status": "ok"})
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, DELETE, PUT"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            return response, 200
+
     @app.after_request
     def add_cors_headers(response):
-        allowed_origin = os.getenv("FRONTEND_URL") or os.getenv("CORS_ORIGIN") or "*"
-        response.headers["Access-Control-Allow-Origin"] = allowed_origin
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        from flask import request
+        origin = request.headers.get("Origin") or "*"
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, DELETE, PUT"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
         return response
 
     @app.errorhandler(Exception)
