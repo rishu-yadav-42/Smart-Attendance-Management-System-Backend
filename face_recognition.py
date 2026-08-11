@@ -535,12 +535,8 @@ def predict_with_backend(recognizer, backend, face_gray, face_color):
 
 
 def arcface_threshold_for_count(registered_count):
-    if registered_count <= 1:
-        return 0.28
     if registered_count <= 3:
-        return 0.31
-    if registered_count <= 6:
-        return 0.34
+        return 0.40
     return ARCFACE_SIMILARITY_THRESHOLD
 
 
