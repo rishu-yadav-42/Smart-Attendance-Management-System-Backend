@@ -64,9 +64,24 @@ except ImportError:
     from helpers import normalize_id, parse_training_id, training_file_student_id
     from services import load_students
 
-face_cascade = cv2.CascadeClassifier(
-    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-)
+def load_face_cascade():
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "haarcascade_frontalface_default.xml"),
+        os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml") if hasattr(cv2, "data") and hasattr(cv2.data, "haarcascades") else "",
+        os.path.join(os.path.dirname(cv2.__file__), "data", "haarcascade_frontalface_default.xml"),
+        "haarcascade_frontalface_default.xml",
+    ]
+    for path in candidates:
+        if path and os.path.exists(path):
+            cascade = cv2.CascadeClassifier(path)
+            if not cascade.empty():
+                print(f"[DEBUG] Loaded valid CascadeClassifier from: {path}")
+                return cascade
+
+    return cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+
+
+face_cascade = load_face_cascade()
 
 arcface_app = None
 arcface_init_error = None

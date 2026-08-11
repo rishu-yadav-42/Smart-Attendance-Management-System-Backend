@@ -377,6 +377,15 @@ def capture_register_frame():
 
         gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
         gray = cv2.equalizeHist(gray)
+
+        global face_cascade
+        if face_cascade is None or face_cascade.empty():
+            try:
+                from backend.face_recognition import load_face_cascade
+            except ImportError:
+                from face_recognition import load_face_cascade
+            face_cascade = load_face_cascade()
+
         faces = face_cascade.detectMultiScale(
             gray,
             scaleFactor=1.08,
