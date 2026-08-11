@@ -401,7 +401,7 @@ def capture_register_frame():
         y_orig = int(y * scale_factor)
         w_orig = int(w * scale_factor)
         h_orig = int(h * scale_factor)
-        padded_face = crop_face_with_padding(img, x_orig, y_orig, w_orig, h_orig, 0.22)
+        padded_face = crop_face_with_padding(img, x_orig, y_orig, w_orig, h_orig, 0.05)
         if padded_face is None:
             return jsonify({"success": False, "message": "Face crop failed"})
 
@@ -516,7 +516,7 @@ def process_attendance():
             return "no_face", None, None
 
         x, y, w, h = max(faces, key=lambda box: box[2] * box[3])
-        face_color = crop_face_with_padding(img, x, y, w, h, 0.22)
+        face_color = crop_face_with_padding(img, x, y, w, h, 0.05)
         if face_color is None:
             return "no_face", None, None
 
@@ -861,7 +861,7 @@ def process_register():
 
         for (x, y, w, h) in faces[:1]:
             sample += 1
-            padded_face = crop_face_with_padding(img, x, y, w, h, 0.22)
+            padded_face = crop_face_with_padding(img, x, y, w, h, 0.05)
             if padded_face is None:
                 continue
             face = cv2.resize(padded_face, (224, 224))

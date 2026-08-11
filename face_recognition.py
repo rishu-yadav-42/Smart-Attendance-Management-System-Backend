@@ -120,14 +120,27 @@ def get_arcface_onnx_session():
     global _arcface_onnx_session
     if _arcface_onnx_session is not None:
         return _arcface_onnx_session
-    model_path = os.path.join(ARCFACE_MODEL_ROOT, "models", ARCFACE_MODEL_NAME, "w600k_r50.onnx")
-    if not os.path.exists(model_path):
-        print(f"[DEBUG] ArcFace ONNX model not found at {model_path}")
+
+    candidates = [
+        os.path.join(ARCFACE_MODEL_ROOT, "models", ARCFACE_MODEL_NAME, "iresnet100.onnx"),
+        os.path.join(ARCFACE_MODEL_ROOT, "models", ARCFACE_MODEL_NAME, "glint360k_r100.onnx"),
+        os.path.join(ARCFACE_MODEL_ROOT, "models", "iresnet100.onnx"),
+        os.path.join(ARCFACE_MODEL_ROOT, "models", ARCFACE_MODEL_NAME, "w600k_r50.onnx"),
+    ]
+
+    model_path = None
+    for cand in candidates:
+        if os.path.exists(cand):
+            model_path = cand
+            break
+
+    if not model_path:
+        print(f"[DEBUG] ArcFace IResNet ONNX model not found in candidates")
         return None
     try:
         import onnxruntime as ort
         _arcface_onnx_session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
-        print("[DEBUG] ArcFace ONNX session loaded successfully (no insightface needed)")
+        print(f"[DEBUG] ArcFace IResNet ONNX session loaded successfully from {os.path.basename(model_path)}")
         return _arcface_onnx_session
     except Exception as exc:
         print(f"[DEBUG] ArcFace ONNX load failed: {exc}")
@@ -184,10 +197,26 @@ def get_arcface_app():
     return arcface_app
 
 
+def apply_face_mask(face_img):
+    if face_img is None or face_img.size == 0:
+        return None
+    h, w = face_img.shape[:2]
+    mask = np.zeros((h, w), dtype=np.uint8)
+    center = (w // 2, h // 2)
+    axes = (int(w * 0.45), int(h * 0.47))
+    cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
+
+    if len(face_img.shape) == 3:
+        mask = cv2.merge([mask, mask, mask])
+    return cv2.bitwise_and(face_img, mask)
+
+
 def extract_arcface_embedding(face_image):
     color_face = ensure_color(face_image)
     if color_face is None:
         return None
+
+    color_face = apply_face_mask(color_face)
 
     # Try insightface first
     app = get_arcface_app()
@@ -223,10 +252,11 @@ def preprocess_face(gray_face):
     face = cv2.resize(gray_face, FACE_SIZE)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     face = clahe.apply(face)
+    face = apply_face_mask(face)
     return face
 
 
-def crop_face_with_padding(image, x, y, w, h, padding_ratio=0.25):
+def crop_face_with_padding(image, x, y, w, h, padding_ratio=0.05):
     if image is None or image.size == 0:
         return None
 
@@ -265,9 +295,15 @@ def crop_face_with_padding(image, x, y, w, h, padding_ratio=0.25):
 
 def face_descriptor(face):
     face = cv2.resize(face, (120, 120)).astype("float32") / 255.0
-    mean = float(face.mean())
-    std = float(face.std()) or 1.0
-    return ((face - mean) / std).reshape(-1)
+    y_coords, x_coords = np.ogrid[:120, :120]
+    center_y, center_x = 60, 60
+    dist_from_center = np.sqrt((x_coords - center_x) ** 2 + (y_coords - center_y) ** 2)
+    weight_mask = np.clip(1.0 - (dist_from_center / 60.0), 0.0, 1.0)
+
+    weighted_face = face * weight_mask
+    mean = float(weighted_face.mean())
+    std = float(weighted_face.std()) or 1.0
+    return ((weighted_face - mean) / std).reshape(-1)
 
 
 class SimpleFaceRecognizer:
@@ -536,14 +572,14 @@ def predict_with_backend(recognizer, backend, face_gray, face_color):
 
 def arcface_threshold_for_count(registered_count):
     if registered_count <= 3:
-        return 0.40
+        return 0.42
     return ARCFACE_SIMILARITY_THRESHOLD
 
 
 def attendance_match_ok(backend, best_score, second_score, registered_count):
     if backend == "arcface":
         threshold = arcface_threshold_for_count(registered_count)
-        margin = 0.02 if registered_count <= 3 else ARCFACE_SECOND_BEST_MARGIN
+        margin = 0.03 if registered_count <= 3 else ARCFACE_SECOND_BEST_MARGIN
         if best_score < threshold:
             return False
         if second_score > -1 and (best_score - second_score) < margin:
@@ -621,7 +657,7 @@ def _process_single_frame(img):
     w_orig = int(w * scale_factor)
     h_orig = int(h * scale_factor)
 
-    face_color = crop_face_with_padding(img, x_orig, y_orig, w_orig, h_orig, 0.22)
+    face_color = crop_face_with_padding(img, x_orig, y_orig, w_orig, h_orig, 0.05)
     if face_color is None:
         return {"status": "no_face", "message": "No face detected."}
 
