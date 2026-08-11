@@ -3,8 +3,12 @@ import os
 import sqlite3
 import pandas as pd
 
-from backend.config import ATTENDANCE_DIR, DB_FILE, STUDENT_FILE, ensure_folders
-from backend.helpers import clean_name, normalize_id, valid_student_id
+try:
+    from backend.config import ATTENDANCE_DIR, DB_FILE, STUDENT_FILE, ensure_folders
+    from backend.helpers import clean_name, normalize_id, valid_student_id
+except ImportError:
+    from config import ATTENDANCE_DIR, DB_FILE, STUDENT_FILE, ensure_folders
+    from helpers import clean_name, normalize_id, valid_student_id
 
 
 def get_db_connection():

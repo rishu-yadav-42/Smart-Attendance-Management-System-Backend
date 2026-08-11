@@ -1,8 +1,17 @@
 import os
 import sys
 
-# Setup vendor path
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CURR_DIR = os.path.dirname(os.path.abspath(__file__))
+if os.path.basename(CURR_DIR) == "backend":
+    BASE_DIR = os.path.dirname(CURR_DIR)
+else:
+    BASE_DIR = CURR_DIR
+
+if CURR_DIR not in sys.path:
+    sys.path.insert(0, CURR_DIR)
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 VENDOR_DIR = os.path.join(BASE_DIR, ".vendor312")
 if os.path.isdir(VENDOR_DIR) and VENDOR_DIR not in sys.path:
     sys.path.insert(0, VENDOR_DIR)

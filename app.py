@@ -1,12 +1,19 @@
 import os
 import sys
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
+# Ensure both current directory and parent directory are in Python path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(CURRENT_DIR)
 
-from backend import app
+for d in (CURRENT_DIR, PARENT_DIR):
+    if d not in sys.path:
+        sys.path.insert(0, d)
+
+try:
+    from backend import app
+except ImportError:
+    from __init__ import app
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
-    app.run(host="127.0.0.1", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False)

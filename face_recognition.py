@@ -9,32 +9,60 @@ try:
 except ImportError:
     FaceAnalysis = None
 
-from backend.config import (
-    ARCFACE_MODEL_FILE,
-    ARCFACE_MODEL_NAME,
-    ARCFACE_MODEL_ROOT,
-    ARCFACE_SECOND_BEST_MARGIN,
-    ARCFACE_SIMILARITY_THRESHOLD,
-    AVG_CONFIDENCE_LIMIT,
-    CONFIDENCE_LIMIT,
-    FALLBACK_AVG_CONFIDENCE_LIMIT,
-    FALLBACK_CONFIDENCE_LIMIT,
-    FALLBACK_MODEL_FILE,
-    FACE_DETECT_MIN_NEIGHBORS,
-    FACE_DETECT_MIN_SIZE,
-    FACE_DETECT_SCALE_FACTOR,
-    FACE_SIZE,
-    MIN_CONFIDENT_FRAMES,
-    MIN_WIN_RATIO,
-    MODEL_FILE,
-    REMOVED_FACE_ARCFACE_THRESHOLD,
-    REMOVED_FACE_FALLBACK_CONFIDENCE_LIMIT,
-    REMOVED_STUDENT_IDS,
-    TRAINING_DIR,
-    ensure_folders,
-)
-from backend.helpers import normalize_id, parse_training_id, training_file_student_id
-from backend.services import load_students
+try:
+    from backend.config import (
+        ARCFACE_MODEL_FILE,
+        ARCFACE_MODEL_NAME,
+        ARCFACE_MODEL_ROOT,
+        ARCFACE_SECOND_BEST_MARGIN,
+        ARCFACE_SIMILARITY_THRESHOLD,
+        AVG_CONFIDENCE_LIMIT,
+        CONFIDENCE_LIMIT,
+        FALLBACK_AVG_CONFIDENCE_LIMIT,
+        FALLBACK_CONFIDENCE_LIMIT,
+        FALLBACK_MODEL_FILE,
+        FACE_DETECT_MIN_NEIGHBORS,
+        FACE_DETECT_MIN_SIZE,
+        FACE_DETECT_SCALE_FACTOR,
+        FACE_SIZE,
+        MIN_CONFIDENT_FRAMES,
+        MIN_WIN_RATIO,
+        MODEL_FILE,
+        REMOVED_FACE_ARCFACE_THRESHOLD,
+        REMOVED_FACE_FALLBACK_CONFIDENCE_LIMIT,
+        REMOVED_STUDENT_IDS,
+        TRAINING_DIR,
+        ensure_folders,
+    )
+    from backend.helpers import normalize_id, parse_training_id, training_file_student_id
+    from backend.services import load_students
+except ImportError:
+    from config import (
+        ARCFACE_MODEL_FILE,
+        ARCFACE_MODEL_NAME,
+        ARCFACE_MODEL_ROOT,
+        ARCFACE_SECOND_BEST_MARGIN,
+        ARCFACE_SIMILARITY_THRESHOLD,
+        AVG_CONFIDENCE_LIMIT,
+        CONFIDENCE_LIMIT,
+        FALLBACK_AVG_CONFIDENCE_LIMIT,
+        FALLBACK_CONFIDENCE_LIMIT,
+        FALLBACK_MODEL_FILE,
+        FACE_DETECT_MIN_NEIGHBORS,
+        FACE_DETECT_MIN_SIZE,
+        FACE_DETECT_SCALE_FACTOR,
+        FACE_SIZE,
+        MIN_CONFIDENT_FRAMES,
+        MIN_WIN_RATIO,
+        MODEL_FILE,
+        REMOVED_FACE_ARCFACE_THRESHOLD,
+        REMOVED_FACE_FALLBACK_CONFIDENCE_LIMIT,
+        REMOVED_STUDENT_IDS,
+        TRAINING_DIR,
+        ensure_folders,
+    )
+    from helpers import normalize_id, parse_training_id, training_file_student_id
+    from services import load_students
 
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"

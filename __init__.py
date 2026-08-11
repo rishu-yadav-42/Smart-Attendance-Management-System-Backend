@@ -1,8 +1,12 @@
 import os
 from flask import Flask
 
-from backend.config import BASE_DIR, ensure_folders
-from backend.database import init_db
+try:
+    from backend.config import BASE_DIR, ensure_folders
+    from backend.database import init_db
+except ImportError:
+    from config import BASE_DIR, ensure_folders
+    from database import init_db
 
 
 def create_app():
@@ -11,12 +15,11 @@ def create_app():
 
     app = Flask(
         __name__,
-        template_folder=frontend_dir,
-        static_folder=frontend_static,
+        template_folder=frontend_dir if os.path.exists(os.path.join(frontend_dir, "index.html")) else BASE_DIR,
+        static_folder=frontend_static if os.path.exists(frontend_static) else BASE_DIR,
     )
     app.secret_key = "secret123"
 
-    # Add CORS headers for separate frontend-backend deployments
     @app.after_request
     def add_cors_headers(response):
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -24,7 +27,11 @@ def create_app():
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, DELETE, PUT"
         return response
 
-    from backend.routes import bp
+    try:
+        from backend.routes import bp
+    except ImportError:
+        from routes import bp
+
     app.register_blueprint(bp)
 
     try:

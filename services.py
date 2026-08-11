@@ -1,16 +1,28 @@
 import os
 import pandas as pd
 
-from backend.config import (
-    ARCFACE_MODEL_FILE,
-    ATTENDANCE_DIR,
-    FALLBACK_MODEL_FILE,
-    MODEL_FILE,
-    STUDENT_FILE,
-    TRAINING_DIR,
-)
-from backend.database import get_db_connection, init_db
-from backend.helpers import clean_name, normalize_id, training_file_student_id
+try:
+    from backend.config import (
+        ARCFACE_MODEL_FILE,
+        ATTENDANCE_DIR,
+        FALLBACK_MODEL_FILE,
+        MODEL_FILE,
+        STUDENT_FILE,
+        TRAINING_DIR,
+    )
+    from backend.database import get_db_connection, init_db
+    from backend.helpers import clean_name, normalize_id, training_file_student_id
+except ImportError:
+    from config import (
+        ARCFACE_MODEL_FILE,
+        ATTENDANCE_DIR,
+        FALLBACK_MODEL_FILE,
+        MODEL_FILE,
+        STUDENT_FILE,
+        TRAINING_DIR,
+    )
+    from database import get_db_connection, init_db
+    from helpers import clean_name, normalize_id, training_file_student_id
 
 
 def load_students():
@@ -92,7 +104,10 @@ def remove_student_from_csv(student_id):
 
 
 def delete_student(student_id):
-    from backend.face_recognition import train_model
+    try:
+        from backend.face_recognition import train_model
+    except ImportError:
+        from face_recognition import train_model
 
     student_id = normalize_id(student_id)
     students = load_students()

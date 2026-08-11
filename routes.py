@@ -6,64 +6,124 @@ import numpy as np
 import pandas as pd
 from flask import Blueprint, Response, jsonify, redirect, render_template, request, session, url_for
 
-from backend.camera import (
-    clear_frame_buffer,
-    gen_frames,
-    get_buffered_frames,
-    open_camera,
-    stop_camera_stream,
-)
-from backend.config import (
-    APP_VERSION,
-    ARCFACE_MODEL_FILE,
-    ATTENDANCE_DIR,
-    FAST_MATCH_TARGET,
-    FACE_DETECT_MIN_NEIGHBORS,
-    FACE_DETECT_MIN_SIZE,
-    FACE_DETECT_SCALE_FACTOR,
-    REMOVED_FACE_ARCFACE_THRESHOLD,
-    REMOVED_FACE_FALLBACK_CONFIDENCE_LIMIT,
-    REMOVED_FACE_MIN_FRAMES,
-    SAMPLE_COUNT,
-    TRAINING_DIR,
-    ensure_folders,
-)
-from backend.database import get_db_connection, init_db, legacy_date_to_iso
-from backend.face_recognition import (
-    _process_single_frame,
-    arcface_init_error,
-    build_removed_face_recognizer,
-    crop_face_with_padding,
-    face_cascade,
-    get_arcface_app,
-    get_removed_student_ids,
-    has_lbph,
-    insightface_available,
-    load_face_recognizer,
-    model_needs_training,
-    predict_with_backend,
-    recognizer_student_count,
-    stable_match_ok,
-    train_model,
-    training_sample_counts,
-)
-from backend.helpers import (
-    clean_name,
-    normalize_id,
-    safe_file_name,
-    training_file_student_id,
-    valid_student_id,
-)
-from backend.services import (
-    add_student,
-    delete_student,
-    latest_attendance_rows,
-    load_students,
-    student_attendance_stat,
-    student_exists,
-    attendance_summary,
-    total_attendance_count,
-)
+try:
+    from backend.camera import (
+        clear_frame_buffer,
+        gen_frames,
+        get_buffered_frames,
+        open_camera,
+        stop_camera_stream,
+    )
+    from backend.config import (
+        APP_VERSION,
+        ARCFACE_MODEL_FILE,
+        ATTENDANCE_DIR,
+        FAST_MATCH_TARGET,
+        FACE_DETECT_MIN_NEIGHBORS,
+        FACE_DETECT_MIN_SIZE,
+        FACE_DETECT_SCALE_FACTOR,
+        REMOVED_FACE_ARCFACE_THRESHOLD,
+        REMOVED_FACE_FALLBACK_CONFIDENCE_LIMIT,
+        REMOVED_FACE_MIN_FRAMES,
+        SAMPLE_COUNT,
+        TRAINING_DIR,
+        ensure_folders,
+    )
+    from backend.database import get_db_connection, init_db, legacy_date_to_iso
+    from backend.face_recognition import (
+        _process_single_frame,
+        arcface_init_error,
+        build_removed_face_recognizer,
+        crop_face_with_padding,
+        face_cascade,
+        get_arcface_app,
+        get_removed_student_ids,
+        has_lbph,
+        insightface_available,
+        load_face_recognizer,
+        model_needs_training,
+        predict_with_backend,
+        recognizer_student_count,
+        stable_match_ok,
+        train_model,
+        training_sample_counts,
+    )
+    from backend.helpers import (
+        clean_name,
+        normalize_id,
+        safe_file_name,
+        training_file_student_id,
+        valid_student_id,
+    )
+    from backend.services import (
+        add_student,
+        delete_student,
+        latest_attendance_rows,
+        load_students,
+        student_attendance_stat,
+        student_exists,
+        attendance_summary,
+        total_attendance_count,
+    )
+except ImportError:
+    from camera import (
+        clear_frame_buffer,
+        gen_frames,
+        get_buffered_frames,
+        open_camera,
+        stop_camera_stream,
+    )
+    from config import (
+        APP_VERSION,
+        ARCFACE_MODEL_FILE,
+        ATTENDANCE_DIR,
+        FAST_MATCH_TARGET,
+        FACE_DETECT_MIN_NEIGHBORS,
+        FACE_DETECT_MIN_SIZE,
+        FACE_DETECT_SCALE_FACTOR,
+        REMOVED_FACE_ARCFACE_THRESHOLD,
+        REMOVED_FACE_FALLBACK_CONFIDENCE_LIMIT,
+        REMOVED_FACE_MIN_FRAMES,
+        SAMPLE_COUNT,
+        TRAINING_DIR,
+        ensure_folders,
+    )
+    from database import get_db_connection, init_db, legacy_date_to_iso
+    from face_recognition import (
+        _process_single_frame,
+        arcface_init_error,
+        build_removed_face_recognizer,
+        crop_face_with_padding,
+        face_cascade,
+        get_arcface_app,
+        get_removed_student_ids,
+        has_lbph,
+        insightface_available,
+        load_face_recognizer,
+        model_needs_training,
+        predict_with_backend,
+        recognizer_student_count,
+        stable_match_ok,
+        train_model,
+        training_sample_counts,
+    )
+    from helpers import (
+        clean_name,
+        normalize_id,
+        safe_file_name,
+        training_file_student_id,
+        valid_student_id,
+    )
+    from services import (
+        add_student,
+        delete_student,
+        latest_attendance_rows,
+        load_students,
+        student_attendance_stat,
+        student_exists,
+        attendance_summary,
+        total_attendance_count,
+    )
 
 bp = Blueprint("main", __name__)
 
@@ -425,7 +485,11 @@ def process_attendance():
         label, best_score, second_score = predict_with_backend(recognizer, backend, face_gray, face_color)
         student_id = str(label) if label is not None else None
 
-        from backend.face_recognition import attendance_match_ok
+        try:
+            from backend.face_recognition import attendance_match_ok
+        except ImportError:
+            from face_recognition import attendance_match_ok
+
         if student_id in id_to_name and attendance_match_ok(backend, best_score, second_score, registered_count):
             return "matched", student_id, best_score
 

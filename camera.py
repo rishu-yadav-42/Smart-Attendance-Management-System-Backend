@@ -2,7 +2,10 @@ import threading
 import time
 import cv2
 
-from backend.config import CAMERA_FRAME_RETRY_LIMIT
+try:
+    from backend.config import CAMERA_FRAME_RETRY_LIMIT
+except ImportError:
+    from config import CAMERA_FRAME_RETRY_LIMIT
 
 camera_stream_should_stop = False
 _frame_buffer = []
