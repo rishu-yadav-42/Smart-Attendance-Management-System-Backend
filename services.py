@@ -47,6 +47,12 @@ def save_students(df):
             "INSERT INTO students (id, name) VALUES (?, ?)",
             [(row["Id"], row["Name"]) for _, row in df.iterrows()],
         )
+        conn.commit()
+    try:
+        os.makedirs(os.path.dirname(STUDENT_FILE), exist_ok=True)
+        df.to_csv(STUDENT_FILE, index=False)
+    except Exception as exc:
+        print(f"[WARNING] Could not save students to CSV: {exc}")
 
 
 def student_exists(student_id):
@@ -54,13 +60,42 @@ def student_exists(student_id):
     return normalize_id(student_id) in set(students["Id"].astype(str))
 
 
+def sync_student_to_csv(student_id, name):
+    try:
+        os.makedirs(os.path.dirname(STUDENT_FILE), exist_ok=True)
+        if os.path.exists(STUDENT_FILE):
+            try:
+                df = pd.read_csv(STUDENT_FILE, dtype={"Id": str, "Name": str})
+            except Exception:
+                df = pd.DataFrame(columns=["Id", "Name"])
+        else:
+            df = pd.DataFrame(columns=["Id", "Name"])
+
+        if "Id" not in df.columns or "Name" not in df.columns:
+            df = pd.DataFrame(columns=["Id", "Name"])
+
+        sid = str(student_id).strip()
+        sname = str(name).strip()
+        df["Id"] = df["Id"].astype(str).str.strip()
+        df = df[df["Id"] != sid]
+        new_row = pd.DataFrame([{"Id": sid, "Name": sname}])
+        df = pd.concat([df, new_row], ignore_index=True)
+        df.to_csv(STUDENT_FILE, index=False)
+    except Exception as exc:
+        print(f"[WARNING] Could not sync student to CSV: {exc}")
+
+
 def add_student(student_id, name):
     init_db()
+    sid = normalize_id(student_id)
+    sname = clean_name(name)
     with get_db_connection() as conn:
         conn.execute(
             "INSERT OR REPLACE INTO students (id, name) VALUES (?, ?)",
-            (normalize_id(student_id), clean_name(name)),
+            (sid, sname),
         )
+        conn.commit()
+    sync_student_to_csv(sid, sname)
 
 
 def remove_student_files(student_id):
@@ -123,6 +158,7 @@ def delete_student(student_id):
     with get_db_connection() as conn:
         conn.execute("DELETE FROM attendance WHERE student_id = ?", (student_id,))
         conn.execute("DELETE FROM students WHERE id = ?", (student_id,))
+        conn.commit()
 
     remaining_students = load_students()
     if remaining_students.empty:

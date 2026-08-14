@@ -55,20 +55,35 @@ def init_db():
             """
         )
 
+        conn.commit()
+
         student_count = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
         if student_count == 0 and os.path.exists(STUDENT_FILE):
-            df = pd.read_csv(STUDENT_FILE, dtype={"Id": str, "Name": str})
-            if not df.empty:
-                df = df.dropna(subset=["Id", "Name"])
-                df["Id"] = df["Id"].astype(str).str.strip()
-                df["Name"] = df["Name"].astype(str).map(clean_name)
-                df = df[df["Id"].map(valid_student_id)]
-                df["Id"] = df["Id"].map(normalize_id)
-                df = df.drop_duplicates(subset=["Id"], keep="last")
-                conn.executemany(
-                    "INSERT OR REPLACE INTO students (id, name) VALUES (?, ?)",
-                    [(row["Id"], row["Name"]) for _, row in df.iterrows()],
-                )
+            try:
+                df = pd.read_csv(STUDENT_FILE, dtype={"Id": str, "Name": str})
+                if not df.empty and "Id" in df.columns and "Name" in df.columns:
+                    df = df.dropna(subset=["Id", "Name"])
+                    df["Id"] = df["Id"].astype(str).str.strip()
+                    df["Name"] = df["Name"].astype(str).map(clean_name)
+                    df = df[df["Id"].map(valid_student_id)]
+                    df["Id"] = df["Id"].map(normalize_id)
+                    df = df.drop_duplicates(subset=["Id"], keep="last")
+                    conn.executemany(
+                        "INSERT OR REPLACE INTO students (id, name) VALUES (?, ?)",
+                        [(row["Id"], row["Name"]) for _, row in df.iterrows()],
+                    )
+                    conn.commit()
+            except Exception as exc:
+                print(f"[WARNING] CSV import error: {exc}")
+        elif student_count > 0:
+            try:
+                rows = conn.execute("SELECT id AS Id, name AS Name FROM students ORDER BY CAST(id AS INTEGER), id").fetchall()
+                if rows:
+                    df = pd.DataFrame([dict(r) for r in rows])
+                    os.makedirs(os.path.dirname(STUDENT_FILE), exist_ok=True)
+                    df.to_csv(STUDENT_FILE, index=False)
+            except Exception as exc:
+                print(f"[WARNING] CSV export sync error: {exc}")
 
         if os.path.exists(ATTENDANCE_DIR):
             for filename in os.listdir(ATTENDANCE_DIR):
